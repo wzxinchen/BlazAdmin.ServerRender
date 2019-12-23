@@ -16,6 +16,8 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.100
+    - name: Restore with dotnet
+      run: dotnet restore src/BlazAdmin.ServerRender/BlazAdmin.ServerRender.csproj -s https://www.myget.org/F/wzxinchen-blazor/api/v3/index.json
     - name: Build with dotnet
       run: dotnet build src/BlazAdmin.ServerRender/BlazAdmin.ServerRender.csproj --configuration Release
     - name: Build Number Generator
