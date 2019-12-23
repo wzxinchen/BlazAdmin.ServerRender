@@ -20,8 +20,10 @@ jobs:
       run: ls
     - name: ls1
       run: ls src
+    - name: ls2
+      run: ls $GITHUB_WORKSPACE
     - name: Restore with dotnet
-      run: dotnet restore src/BlazAdmin.ServerRender/BlazAdmin.ServerRender.csproj --configfile nuget.config
+      run: dotnet restore src/BlazAdmin.ServerRender/BlazAdmin.ServerRender.csproj --configfile $GITHUB_WORKSPACE/nuget.config
     - name: Build with dotnet
       run: dotnet build src/BlazAdmin.ServerRender/BlazAdmin.ServerRender.csproj --configuration Release
     - name: Build Number Generator
