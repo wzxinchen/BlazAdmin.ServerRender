@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlazAdmin" Version="0.0.2.19-develop" />
+    <PackageReference Include="BlazAdmin" Version="0.0.2.20-develop" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="3.1.0" />
   </ItemGroup>
 
