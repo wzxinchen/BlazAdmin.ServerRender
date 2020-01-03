@@ -109,7 +109,7 @@ namespace BlazAdmin.ServerRender
         public async Task<string> CreateSuperUserAsync(string username, string password)
         {
             string err = string.Empty;
-            using (var scope = new TransactionScope())
+            using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
             {
                 err = await CreateUserAsync(username, password);
                 if (!string.IsNullOrWhiteSpace(err))
