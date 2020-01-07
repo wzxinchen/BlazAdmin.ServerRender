@@ -39,7 +39,7 @@ namespace BlazAdmin.ServerRender
         /// <returns></returns>
         [HttpPost]
         [Route("api/login")]
-        public async ValueTask<IActionResult> Login([FromForm]UserModel user, [FromQuery]string callback)
+        public async ValueTask<IActionResult> Login([FromForm]LoginModel user, [FromQuery]string callback)
         {
             var err = await userService.LoginAsync(null, user.Username, user.Password, callback);
 

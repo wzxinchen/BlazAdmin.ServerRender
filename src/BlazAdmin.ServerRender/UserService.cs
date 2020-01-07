@@ -22,15 +22,17 @@ namespace BlazAdmin.ServerRender
             return GetResultMessage(result);
         }
 
-        public override async Task<string> CreateUserAsync(string username, string password)
+        public override async Task<string> CreateUserAsync(string username, string email, string password)
         {
             var user = new IdentityUser(username);
+            user.Email = email;
             var result = await SignInManager.UserManager.CreateAsync(user, password);
             return GetResultMessage(result);
         }
 
-        public override async Task<string> DeleteUsersAsync(params object[] users)
+        public override async Task<string> DeleteUsersAsync(params string[] userIds)
         {
+            var users = SignInManager.UserManager.Users.Where(x => userIds.Contains(x.Id)).ToArray();
             foreach (IdentityUser item in users)
             {
                 var result = await SignInManager.UserManager.DeleteAsync(item);
@@ -41,6 +43,19 @@ namespace BlazAdmin.ServerRender
                 return GetResultMessage(result);
             }
             return string.Empty;
+        }
+
+        public override async Task<string> UpdateUserAsync(UserModel userModel)
+        {
+            var user = await SignInManager.UserManager.FindByIdAsync(userModel.Id);
+            if (user == null)
+            {
+                return "当前用户不存在";
+            }
+            user.UserName = userModel.Username;
+            user.Email = userModel.Email;
+            var result = await SignInManager.UserManager.UpdateAsync(user);
+            return GetResultMessage(result);
         }
     }
 }

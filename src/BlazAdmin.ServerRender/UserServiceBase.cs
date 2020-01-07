@@ -68,7 +68,7 @@ namespace BlazAdmin.ServerRender
             return null;
         }
 
-        public abstract Task<string> CreateUserAsync(string username, string password);
+        public abstract Task<string> CreateUserAsync(string username, string email, string password);
 
         public abstract Task<string> CreateRoleAsync(string roleName, string id);
 
@@ -101,9 +101,14 @@ namespace BlazAdmin.ServerRender
             return string.Empty;
         }
 
-        public async Task<List<object>> GetUsersAsync()
+        public async Task<List<UserModel>> GetUsersAsync()
         {
-            return (await SignInManager.UserManager.Users.ToListAsync()).Cast<object>().ToList();
+            return (await SignInManager.UserManager.Users.ToListAsync()).Select(x => new UserModel()
+            {
+                Username = x.UserName,
+                Id = x.Id,
+                Email = x.Email
+            }).ToList();
         }
 
         public async Task<string> CreateSuperUserAsync(string username, string password)
@@ -111,7 +116,7 @@ namespace BlazAdmin.ServerRender
             string err = string.Empty;
             using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
             {
-                err = await CreateUserAsync(username, password);
+                err = await CreateUserAsync(username, string.Empty, password);
                 if (!string.IsNullOrWhiteSpace(err))
                 {
                     return err;
@@ -174,7 +179,7 @@ namespace BlazAdmin.ServerRender
         }
 
 
-        public abstract Task<string> DeleteUsersAsync(params object[] users);
+        public abstract Task<string> DeleteUsersAsync(params string[] users);
 
         public async ValueTask SubmitLogoutAsync(BForm form, string callbackUri)
         {
@@ -193,6 +198,20 @@ namespace BlazAdmin.ServerRender
         public async ValueTask<string> ExecuteLoginAsync(Func<ValueTask<string>> action)
         {
             return await action();
+        }
+
+        public abstract Task<string> UpdateUserAsync(UserModel userModel);
+
+        public async ValueTask<string> ResetPasswordAsync(string id, string password)
+        {
+            var user = await SignInManager.UserManager.FindByIdAsync(id);
+            if (user == null)
+            {
+                return "该用户不存在";
+            }
+            var token = await SignInManager.UserManager.GeneratePasswordResetTokenAsync(user);
+            var result = await SignInManager.UserManager.ResetPasswordAsync(user, token, password);
+            return GetResultMessage(result);
         }
     }
 }
