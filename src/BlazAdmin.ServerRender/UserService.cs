@@ -30,6 +30,21 @@ namespace BlazAdmin.ServerRender
             return GetResultMessage(result);
         }
 
+        public override async ValueTask<string> DeleteRolesAsync(params string[] ids)
+        {
+            var roles = RoleManager.Roles.Where(x => ids.Contains(x.Id)).ToArray();
+            foreach (IdentityRole item in roles)
+            {
+                var result = await RoleManager.DeleteAsync(item);
+                if (result.Succeeded)
+                {
+                    continue;
+                }
+                return GetResultMessage(result);
+            }
+            return string.Empty;
+        }
+
         public override async Task<string> DeleteUsersAsync(params string[] userIds)
         {
             var users = SignInManager.UserManager.Users.Where(x => userIds.Contains(x.Id)).ToArray();
@@ -43,6 +58,15 @@ namespace BlazAdmin.ServerRender
                 return GetResultMessage(result);
             }
             return string.Empty;
+        }
+
+        public override async Task<List<RoleModel>> GetRolesAsync()
+        {
+            return (await RoleManager.Roles.ToListAsync()).Select(x => new RoleModel()
+            {
+                Name = x.Name,
+                Id = x.Id
+            }).ToList();
         }
 
         public override async Task<string> UpdateUserAsync(UserModel userModel)

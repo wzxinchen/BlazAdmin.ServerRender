@@ -213,5 +213,8 @@ namespace BlazAdmin.ServerRender
             var result = await SignInManager.UserManager.ResetPasswordAsync(user, token, password);
             return GetResultMessage(result);
         }
+
+        public abstract Task<List<RoleModel>> GetRolesAsync();
+        public abstract ValueTask<string> DeleteRolesAsync(params string[] ids);
     }
 }
