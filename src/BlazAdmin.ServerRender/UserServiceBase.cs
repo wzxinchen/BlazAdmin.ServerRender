@@ -70,7 +70,7 @@ namespace BlazAdmin.ServerRender
 
         public abstract Task<string> CreateUserAsync(string username, string email, string password);
 
-        public abstract Task<string> CreateRoleAsync(string roleName, string id);
+        public abstract Task<string> CreateRoleAsync(string roleName);
 
         public async Task<string> AddToRoleAsync(string username, params string[] roles)
         {
@@ -121,7 +121,7 @@ namespace BlazAdmin.ServerRender
                 {
                     return err;
                 }
-                err = await CreateRoleAsync("管理员", "admin");
+                err = await CreateRoleAsync("管理员");
                 if (!string.IsNullOrWhiteSpace(err))
                 {
                     return err;
@@ -216,5 +216,19 @@ namespace BlazAdmin.ServerRender
 
         public abstract Task<List<RoleModel>> GetRolesAsync();
         public abstract ValueTask<string> DeleteRolesAsync(params string[] ids);
+
+        public async Task<string> UpdateRoleAsync(RoleModel roleModel)
+        {
+            var role = await RoleManager.FindByIdAsync(roleModel.Id);
+            if (role == null)
+            {
+                return "当前角色不存在";
+            }
+            role.Name = roleModel.Name;
+            var result = await RoleManager.UpdateAsync(role);
+            return GetResultMessage(result);
+        }
+
+        public abstract Task<string> GetRolesAsync(params string[] resources);
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 
@@ -13,6 +14,7 @@ namespace BlazAdmin.ServerRender
         public static IServiceCollection AddBlazAdmin<TDbContext>(this IServiceCollection services)
             where TDbContext : IdentityDbContext
         {
+            services.AddScoped<DbContext, TDbContext>();
             services.AddBlazAdmin<IdentityUser, UserService, TDbContext>(null);
             return services;
         }

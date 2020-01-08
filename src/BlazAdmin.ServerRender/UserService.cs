@@ -10,14 +10,16 @@ namespace BlazAdmin.ServerRender
 {
     public class UserService : UserServiceBase<IdentityUser, IdentityRole>
     {
-        public UserService(SignInManager<IdentityUser> signInManager, RoleManager<IdentityRole> roleManager) : base(signInManager, roleManager)
+        private readonly DbContext dbContext;
+
+        public UserService(SignInManager<IdentityUser> signInManager, RoleManager<IdentityRole> roleManager, DbContext dbContext) : base(signInManager, roleManager)
         {
+            this.dbContext = dbContext;
         }
 
-        public override async Task<string> CreateRoleAsync(string roleName, string id)
+        public override async Task<string> CreateRoleAsync(string roleName)
         {
             var role = new IdentityRole(roleName);
-            role.Id = id;
             var result = await RoleManager.CreateAsync(role);
             return GetResultMessage(result);
         }
@@ -67,6 +69,15 @@ namespace BlazAdmin.ServerRender
                 Name = x.Name,
                 Id = x.Id
             }).ToList();
+        }
+
+        public override Task<string> GetRolesAsync(params string[] resources)
+        {
+            var identityResources = dbContext.Set<IdentityResource>().Where(x => resources.Contains(x.Name)).ToArray();
+            var resourceIds = identityResources.Select(x => x.Id).ToArray();
+            var roleIds = dbContext.Set<RoleResource>().Where(x => resourceIds.Contains(x.ResourceId)).Select(x => x.RoleId).ToArray();
+            var roleNames = RoleManager.Roles.Where(x => roleIds.Contains(x.Id)).Select(x => x.Name).ToArray();
+            return Task.FromResult(string.Join(",", roleNames));
         }
 
         public override async Task<string> UpdateUserAsync(UserModel userModel)
