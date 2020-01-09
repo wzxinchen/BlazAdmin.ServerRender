@@ -93,11 +93,11 @@ namespace BlazAdmin.ServerRender
             return roles.ToList();
         }
 
-        public override Task<string> GetRolesWithResourcesAsync(params string[] resources)
+        public override string GetRolesWithResources(params string[] resources)
         {
             var roleIds = DbContext.Set<RoleResource>().Where(x => resources.Contains(x.ResourceId)).Select(x => x.RoleId).ToArray();
             var roleNames = RoleManager.Roles.Where(x => roleIds.Contains(x.Id)).Select(x => x.Name).ToArray();
-            return Task.FromResult(string.Join(",", roleNames));
+            return string.Join(",", roleNames);
         }
 
         public override async Task<string> UpdateUserAsync(UserModel userModel)

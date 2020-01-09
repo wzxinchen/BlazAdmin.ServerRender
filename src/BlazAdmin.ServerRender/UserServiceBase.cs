@@ -261,6 +261,6 @@ namespace BlazAdmin.ServerRender
             return string.Empty;
         }
 
-        public abstract Task<string> GetRolesWithResourcesAsync(params string[] resources);
+        public abstract string GetRolesWithResources(params string[] resources);
     }
 }
