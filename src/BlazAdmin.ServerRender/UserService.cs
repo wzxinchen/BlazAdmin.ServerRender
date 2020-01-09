@@ -5,23 +5,38 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace BlazAdmin.ServerRender
 {
     public class UserService : UserServiceBase<IdentityUser, IdentityRole>
     {
-        private readonly DbContext dbContext;
+        private readonly ResourceAccessor resourceAccessor;
 
-        public UserService(SignInManager<IdentityUser> signInManager, RoleManager<IdentityRole> roleManager, DbContext dbContext) : base(signInManager, roleManager)
+        public UserService(SignInManager<IdentityUser> signInManager, RoleManager<IdentityRole> roleManager, DbContext dbContext, ResourceAccessor resourceAccessor) : base(signInManager, roleManager, dbContext)
         {
-            this.dbContext = dbContext;
+            this.resourceAccessor = resourceAccessor;
         }
 
-        public override async Task<string> CreateRoleAsync(string roleName)
+        public override async Task<string> CreateRoleAsync(RoleModel role)
         {
-            var role = new IdentityRole(roleName);
-            var result = await RoleManager.CreateAsync(role);
-            return GetResultMessage(result);
+            var identityRole = new IdentityRole(role.Name);
+            using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+            {
+                var result = await RoleManager.CreateAsync(identityRole);
+                if (!result.Succeeded)
+                {
+                    return GetResultMessage(result);
+                }
+                DbContext.Set<RoleResource>().AddRange(role.Resources.Select(x => new RoleResource()
+                {
+                    ResourceId = x,
+                    RoleId = identityRole.Id
+                }));
+                await DbContext.SaveChangesAsync();
+                scope.Complete();
+                return GetResultMessage(result);
+            }
         }
 
         public override async Task<string> CreateUserAsync(string username, string email, string password)
@@ -62,35 +77,60 @@ namespace BlazAdmin.ServerRender
             return string.Empty;
         }
 
-        public override async Task<List<RoleModel>> GetRolesAsync()
+        public override List<RoleModel> GetRoles()
         {
-            return (await RoleManager.Roles.ToListAsync()).Select(x => new RoleModel()
+            var roles = RoleManager.Roles.Select(x => new RoleModel()
             {
                 Name = x.Name,
-                Id = x.Id
+                Id = x.Id,
             }).ToList();
+            var roleIds = roles.Select(x => x.Id).ToArray();
+            var resources = DbContext.Set<RoleResource>().Where(x => roleIds.Contains(x.RoleId)).ToArray();
+            foreach (var role in roles)
+            {
+                role.Resources = resources.Where(x => x.RoleId == role.Id).Select(x => x.ResourceId).ToList();
+            }
+            return roles.ToList();
         }
 
-        public override Task<string> GetRolesAsync(params string[] resources)
+        public override Task<string> GetRolesWithResourcesAsync(params string[] resources)
         {
-            var identityResources = dbContext.Set<IdentityResource>().Where(x => resources.Contains(x.Name)).ToArray();
-            var resourceIds = identityResources.Select(x => x.Id).ToArray();
-            var roleIds = dbContext.Set<RoleResource>().Where(x => resourceIds.Contains(x.ResourceId)).Select(x => x.RoleId).ToArray();
+            var roleIds = DbContext.Set<RoleResource>().Where(x => resources.Contains(x.ResourceId)).Select(x => x.RoleId).ToArray();
             var roleNames = RoleManager.Roles.Where(x => roleIds.Contains(x.Id)).Select(x => x.Name).ToArray();
             return Task.FromResult(string.Join(",", roleNames));
         }
 
         public override async Task<string> UpdateUserAsync(UserModel userModel)
         {
-            var user = await SignInManager.UserManager.FindByIdAsync(userModel.Id);
-            if (user == null)
+            using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
             {
-                return "当前用户不存在";
+                var user = await SignInManager.UserManager.FindByIdAsync(userModel.Id);
+                if (user == null)
+                {
+                    return "当前用户不存在";
+                }
+                user.UserName = userModel.Username;
+                user.Email = userModel.Email;
+                var existRoles = await SignInManager.UserManager.GetRolesAsync(user);
+                var result = await SignInManager.UserManager.RemoveFromRolesAsync(user, existRoles);
+                if (!result.Succeeded)
+                {
+                    return GetResultMessage(result);
+                }
+                var newRoles = RoleManager.Roles.Where(x => userModel.Roles.Contains(x.Id)).Select(x => x.Name).ToArray();
+                result = await SignInManager.UserManager.AddToRolesAsync(user, newRoles);
+                if (!result.Succeeded)
+                {
+                    return GetResultMessage(result);
+                }
+                result = await SignInManager.UserManager.UpdateAsync(user);
+                if (!result.Succeeded)
+                {
+                    return GetResultMessage(result);
+                }
+                scope.Complete();
             }
-            user.UserName = userModel.Username;
-            user.Email = userModel.Email;
-            var result = await SignInManager.UserManager.UpdateAsync(user);
-            return GetResultMessage(result);
+            return string.Empty;
         }
     }
 }

@@ -17,6 +17,8 @@ namespace BlazAdmin.ServerRender
         protected readonly SignInManager<TUser> SignInManager;
         protected readonly RoleManager<TRole> RoleManager;
 
+        protected DbContext DbContext { get; }
+
         protected string GetResultMessage(IdentityResult identity)
         {
             if (identity.Succeeded)
@@ -29,10 +31,11 @@ namespace BlazAdmin.ServerRender
             }
             return string.Empty;
         }
-        public UserServiceBase(SignInManager<TUser> signInManager, RoleManager<TRole> roleManager)
+        public UserServiceBase(SignInManager<TUser> signInManager, RoleManager<TRole> roleManager, DbContext dbContext)
         {
             SignInManager = signInManager;
             RoleManager = roleManager;
+            DbContext = dbContext;
         }
 
 
@@ -70,7 +73,7 @@ namespace BlazAdmin.ServerRender
 
         public abstract Task<string> CreateUserAsync(string username, string email, string password);
 
-        public abstract Task<string> CreateRoleAsync(string roleName);
+        public abstract Task<string> CreateRoleAsync(RoleModel role);
 
         public async Task<string> AddToRoleAsync(string username, params string[] roles)
         {
@@ -103,12 +106,21 @@ namespace BlazAdmin.ServerRender
 
         public async Task<List<UserModel>> GetUsersAsync()
         {
-            return (await SignInManager.UserManager.Users.ToListAsync()).Select(x => new UserModel()
+            var users = await SignInManager.UserManager.Users.ToListAsync();
+            var userResults = new List<UserModel>();
+            var roles = await RoleManager.Roles.ToListAsync();
+            foreach (var user in users)
             {
-                Username = x.UserName,
-                Id = x.Id,
-                Email = x.Email
-            }).ToList();
+                var userRoles = await SignInManager.UserManager.GetRolesAsync(user);
+                userResults.Add(new UserModel()
+                {
+                    Id = user.Id,
+                    Email = user.Email,
+                    Username = user.UserName,
+                    Roles = roles.Where(x => userRoles.Contains(x.Name)).Select(x => x.Id).ToList()
+                });
+            }
+            return userResults;
         }
 
         public async Task<string> CreateSuperUserAsync(string username, string password)
@@ -121,7 +133,10 @@ namespace BlazAdmin.ServerRender
                 {
                     return err;
                 }
-                err = await CreateRoleAsync("管理员");
+                err = await CreateRoleAsync(new RoleModel()
+                {
+                    Name = "管理员"
+                });
                 if (!string.IsNullOrWhiteSpace(err))
                 {
                     return err;
@@ -214,21 +229,38 @@ namespace BlazAdmin.ServerRender
             return GetResultMessage(result);
         }
 
-        public abstract Task<List<RoleModel>> GetRolesAsync();
+        public abstract List<RoleModel> GetRoles();
         public abstract ValueTask<string> DeleteRolesAsync(params string[] ids);
 
         public async Task<string> UpdateRoleAsync(RoleModel roleModel)
         {
-            var role = await RoleManager.FindByIdAsync(roleModel.Id);
-            if (role == null)
+            using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
             {
-                return "当前角色不存在";
+                var role = await RoleManager.FindByIdAsync(roleModel.Id);
+                if (role == null)
+                {
+                    return "当前角色不存在";
+                }
+                role.Name = roleModel.Name;
+                var result = await RoleManager.UpdateAsync(role);
+                if (!result.Succeeded)
+                {
+                    return GetResultMessage(result);
+                }
+                var roleResources = DbContext.Set<RoleResource>();
+                var deletings = roleResources.Where(x => x.RoleId == roleModel.Id);
+                roleResources.RemoveRange(deletings);
+                roleResources.AddRange(roleModel.Resources.Select(x => new RoleResource()
+                {
+                    ResourceId = x,
+                    RoleId = roleModel.Id
+                }));
+                await DbContext.SaveChangesAsync();
+                scope.Complete();
             }
-            role.Name = roleModel.Name;
-            var result = await RoleManager.UpdateAsync(role);
-            return GetResultMessage(result);
+            return string.Empty;
         }
 
-        public abstract Task<string> GetRolesAsync(params string[] resources);
+        public abstract Task<string> GetRolesWithResourcesAsync(params string[] resources);
     }
 }
